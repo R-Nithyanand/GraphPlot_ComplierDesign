@@ -52,6 +52,15 @@ double evaluate(ASTNode *node, double x) {
             if (strcmp(node->func, "tan") == 0) return tan(evaluate(node->left, x));
             if (strcmp(node->func, "exp") == 0) return exp(evaluate(node->left, x));
             if (strcmp(node->func, "log") == 0) return log(evaluate(node->left, x));
+            if (strcmp(node->func, "sqrt") == 0) return sqrt(evaluate(node->left, x));
+            if (strcmp(node->func, "abs") == 0) return fabs(evaluate(node->left, x));
+            if (strcmp(node->func, "ln") == 0) return log(evaluate(node->left, x));
+            if (strcmp(node->func, "asin") == 0) return asin(evaluate(node->left, x));
+            if (strcmp(node->func, "acos") == 0) return acos(evaluate(node->left, x));
+            if (strcmp(node->func, "atan") == 0) return atan(evaluate(node->left, x));
+            if (strcmp(node->func, "sinh") == 0) return sinh(evaluate(node->left, x));
+            if (strcmp(node->func, "cosh") == 0) return cosh(evaluate(node->left, x));
+            if (strcmp(node->func, "tanh") == 0) return tanh(evaluate(node->left, x));
             break;
     }
     return 0;
@@ -62,4 +71,28 @@ void freeAST(ASTNode *node) {
     freeAST(node->left);
     freeAST(node->right);
     free(node);
+}
+
+int validateAST(ASTNode *node) {
+    if (!node) return 1;
+    
+    // Check for division by zero with constant
+    if (node->type == NODE_OP && node->op == '/') {
+        if (node->right && node->right->type == NODE_NUMBER && 
+            node->right->value == 0.0) {
+            fprintf(stderr, "Error: Division by zero detected\n");
+            return 0;
+        }
+    }
+    
+    // Check for log of negative/zero
+    if (node->type == NODE_FUNC && strcmp(node->func, "log") == 0) {
+        if (node->left && node->left->type == NODE_NUMBER && 
+            node->left->value <= 0) {
+            fprintf(stderr, "Error: log of non-positive number\n");
+            return 0;
+        }
+    }
+    
+    return validateAST(node->left) && validateAST(node->right);
 }

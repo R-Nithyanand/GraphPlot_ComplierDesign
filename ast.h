@@ -18,5 +18,6 @@ ASTNode* createOpNode(char op, ASTNode *left, ASTNode *right);
 ASTNode* createFuncNode(const char *func, ASTNode *child);
 double evaluate(ASTNode *node, double x);
 void freeAST(ASTNode *node);
+int validateAST(ASTNode *node);
 
 #endif

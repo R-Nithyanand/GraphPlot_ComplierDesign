@@ -1,1 +1,28 @@
-.DS_Store
+# Build and parser/lexer generated files
+expr.tab.c
+expr.tab.h
+lex.yy.c
+graph_compiler
+graph_compiler_multi
+
+# Data or temporary files
+data.txt
+data*.txt
+data[0-9].txt
+data[0-9][0-9].txt
+
+# Extras
+*.out
+*.o
+*.exe
+*.log
+*.swp
+*.DS_Store
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+Thumbs.db

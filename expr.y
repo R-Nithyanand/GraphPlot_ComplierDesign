@@ -14,7 +14,7 @@ void yyerror(const char *s) { fprintf(stderr, "Error: %s\n", s); }
 }
 
 %token <dval> NUMBER
-%token VAR SIN COS TAN EXP LOG
+%token VAR SIN COS TAN EXP LOG SQRT ABS LN ASIN ACOS ATAN SINH COSH TANH
 %type <node> expr
 %token QUIT
 
@@ -46,6 +46,15 @@ expr:
     | TAN '(' expr ')' { $$ = createFuncNode("tan", $3); }
     | EXP '(' expr ')' { $$ = createFuncNode("exp", $3); }
     | LOG '(' expr ')' { $$ = createFuncNode("log", $3); }
+    | SQRT '(' expr ')' { $$ = createFuncNode("sqrt", $3); }
+    | ABS '(' expr ')' { $$ = createFuncNode("abs", $3); }
+    | LN '(' expr ')' { $$ = createFuncNode("ln", $3); }
+    | ASIN '(' expr ')' { $$ = createFuncNode("asin", $3); }
+    | ACOS '(' expr ')' { $$ = createFuncNode("acos", $3); }
+    | ATAN '(' expr ')' { $$ = createFuncNode("atan", $3); }
+    | SINH '(' expr ')' { $$ = createFuncNode("sinh", $3); }
+    | COSH '(' expr ')' { $$ = createFuncNode("cosh", $3); }
+    | TANH '(' expr ')' { $$ = createFuncNode("tanh", $3); }
 ;
 
 %%
