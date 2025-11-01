@@ -3,6 +3,10 @@
 #include <string.h>
 #include "ast.h"
 
+// Flex/Bison functions for parsing from string
+typedef struct yy_buffer_state * YY_BUFFER_STATE;
+extern YY_BUFFER_STATE yy_scan_string(const char *str);
+extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 extern int yyparse();
 extern ASTNode *root;
 
@@ -64,7 +68,8 @@ void plot_all_functions(double x_min, double x_max, double step) {
         fclose(f);
     }
 
-    printf("\nLaunching gnuplot with %d functions...\n", func_count);
+    printf("\nLaunching gnuplot with %d function%s...\n", 
+           func_count, func_count > 1 ? "s" : "");
 
     // Build gnuplot command
     FILE *gp = popen("gnuplot -persist", "w");
@@ -125,7 +130,11 @@ int main(int argc, char *argv[]) {
     printf("(Use: ./graph_compiler_multi <min> <max> <step> to change)\n\n");
 
     while (1) {
-        printf("f%d(x) = ", func_count);
+        if (func_count < MAX_FUNCTIONS) {
+            printf("f%d(x) = ", func_count);
+        } else {
+            printf("> ");
+        }
         fflush(stdout);
         
         char input[256];
@@ -135,6 +144,11 @@ int main(int argc, char *argv[]) {
 
         // Remove newline
         input[strcspn(input, "\n")] = 0;
+
+        // Skip empty input
+        if (strlen(input) == 0) {
+            continue;
+        }
 
         // Check for commands
         if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0) {
@@ -153,24 +167,44 @@ int main(int argc, char *argv[]) {
             list_functions();
             continue;
         }
-        if (strlen(input) == 0) {
+
+        // Check if max functions reached
+        if (func_count >= MAX_FUNCTIONS) {
+            printf("Maximum functions (%d) reached! Type 'plot', 'clear', or 'quit'.\n", MAX_FUNCTIONS);
             continue;
         }
 
-        // Store the expression string for display
-        strcpy(func_names[func_count], input);
+        // Parse the expression using yy_scan_string
+        // Add newline for parser
+        char expr_with_newline[260];
+        snprintf(expr_with_newline, sizeof(expr_with_newline), "%s\n", input);
+        
+        YY_BUFFER_STATE buffer = yy_scan_string(expr_with_newline);
+        root = NULL;
+        int result = yyparse();
+        yy_delete_buffer(buffer);
 
-        // Parse the expression
-        // Note: You'll need to modify your lexer/parser to read from string
-        // For now, this is a simplified version
-        printf("Note: Expression stored. Type 'plot' to visualize.\n");
-        
-        // TODO: Parse from string instead of stdin
-        // This requires modifications to use yy_scan_string()
-        
+        if (result != 0 || !root) {
+            printf("Parse error. Please try again.\n");
+            continue;
+        }
+
+        // Validate the AST
+        if (!validateAST(root)) {
+            freeAST(root);
+            continue;
+        }
+
+        // Store the expression
+        strcpy(func_names[func_count], input);
+        functions[func_count] = root;
         func_count++;
-        if (func_count >= MAX_FUNCTIONS) {
-            printf("Maximum functions reached! Type 'plot' to visualize or 'clear' to reset.\n");
+
+        printf("✓ Function f%d(x) added. ", func_count - 1);
+        if (func_count < MAX_FUNCTIONS) {
+            printf("Enter more or type 'plot' to visualize.\n");
+        } else {
+            printf("Max reached! Type 'plot' to visualize.\n");
         }
     }
 

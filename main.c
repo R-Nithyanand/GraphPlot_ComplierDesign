@@ -5,6 +5,8 @@
 
 extern int yyparse();
 extern ASTNode *root;
+extern FILE *yyin;
+extern void yyrestart(FILE *input_file);
 
 void print_banner() {
     printf("\n");
@@ -90,9 +92,8 @@ int main(int argc, char *argv[]) {
         
         if (result != 0) {
             printf("Parse error. Please try again.\n");
-            // Clear input buffer
-            int c;
-            while ((c = getchar()) != '\n' && c != EOF);
+            // Restart the lexer to clear any bad state
+            yyrestart(stdin);
             continue;
         }
 
