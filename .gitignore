@@ -3,18 +3,16 @@ expr.tab.c
 expr.tab.h
 lex.yy.c
 graph_compiler
-graph_compiler_multi
 
-# Data or temporary files
-data.txt
+# Data files (temporary output)
 data*.txt
-data[0-9].txt
-data[0-9][0-9].txt
 
-# Extras
+# Build artifacts
 *.out
 *.o
 *.exe
+
+# Logs and temp files
 *.log
 *.swp
 *.DS_Store

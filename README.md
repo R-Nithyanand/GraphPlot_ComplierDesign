@@ -14,6 +14,22 @@ A DSL (Domain Specific Language) for plotting and visualizing mathematical expre
 - Expression validation (division by zero, invalid log arguments)
 - Interactive REPL interface
 
+## Modes
+
+### Single-Function Mode (Default)
+- Each expression plots immediately
+- Perfect for quick visualization
+- No need to type 'plot'
+
+### Multi-Function Mode
+- Collect multiple expressions
+- Type 'plot' to visualize all together
+- Compare functions on same graph
+- Use 'list' to see stored functions
+- Use 'clear' to remove all
+
+**Switch modes anytime with the `mode` command!**
+
 ## Building
 ```bash
 make
@@ -139,8 +155,14 @@ The plotter validates expressions and catches:
 
 ## License
 
-MIT License - Feel free to use and modify!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Author
 
-Created as a DSL project for mathematical visualization.
+**R-Nithyanand**
+
+A DSL for plotting mathematical expressions using Flex, Bison, and Gnuplot.
+
+---
+
+Feel free to use, modify, and learn from this project!
