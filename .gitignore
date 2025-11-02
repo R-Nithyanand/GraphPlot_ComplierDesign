@@ -1,15 +1,17 @@
 # Build and parser/lexer generated files
-expr.tab.c
-expr.tab.h
+*.tab.c
+*.tab.h
 lex.yy.c
+lex.yy.o
+graph_compiler/
 graph_compiler
 
 # Data files (temporary output)
 data*.txt
 
 # Build artifacts
-*.out
 *.o
+*.out
 *.exe
 
 # Logs and temp files
@@ -20,7 +22,11 @@ data*.txt
 # IDE and editor files
 .vscode/
 .idea/
-*.sublime-*
+*.sublime-project
+*.sublime-workspace
 
 # OS files
 Thumbs.db
+
+# Dependency files
+*.d

@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
+#include "symtab.h"
+#include "commands.h"
 
-// Flex/Bison functions
 typedef struct yy_buffer_state * YY_BUFFER_STATE;
 extern YY_BUFFER_STATE yy_scan_string(const char *str);
 extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
@@ -11,51 +12,60 @@ extern int yyparse();
 extern ASTNode *root;
 extern void yyrestart(FILE *input_file);
 
-#define MAX_FUNCTIONS 10
-ASTNode *functions[MAX_FUNCTIONS];
-char func_names[MAX_FUNCTIONS][100];
-int func_count = 0;
-int multi_mode = 0;  // Mode flag: 0 = single, 1 = multi
+int cmd_let=0, cmd_def=0, cmd_ast=0, cmd_vars=0, cmd_funcs=0, cmd_show=0;
+char show_func_name[50];
+int  error_occurred = 0;
+
+// Multi-function storage
+#define MAX_MULTI_FUNCTIONS 10
+ASTNode *multi_functions[MAX_MULTI_FUNCTIONS];
+char multi_func_names[MAX_MULTI_FUNCTIONS][100];
+int multi_func_count = 0;
+int multi_mode = 0;  // 0 = single (advanced features), 1 = multi (simple plotting)
 
 void print_banner() {
     printf("\n");
-    printf("╔════════════════════════════════════════════╗\n");
-    printf("║   Mathematical Expression Plotter v2.0     ║\n");
-    printf("╚════════════════════════════════════════════╝\n");
-    printf("\nSupported operations:\n");
-    printf("  Operators: +, -, *, /, ^\n");
-    printf("  Functions: sin, cos, tan, exp, log, sqrt, abs, ln\n");
-    printf("             asin, acos, atan, sinh, cosh, tanh\n");
-    printf("  Constants: pi, e\n");
-    printf("  Variable:  x\n");
-    printf("\nModes:\n");
-    printf("  Single mode: Enter expression → Plot immediately\n");
-    printf("  Multi mode:  Collect expressions → Type 'plot' to show all\n");
-    printf("\nCommands:\n");
-    printf("  'mode'  - Toggle between single/multi mode\n");
-    printf("  'plot'  - Plot all functions (multi mode only)\n");
-    printf("  'clear' - Clear all functions (multi mode only)\n");
-    printf("  'list'  - Show all functions (multi mode only)\n");
-    printf("  'quit'  - Exit\n");
+    printf("╔═══════════════════════════════════════════════════════════╗\n");
+    printf("║          Mathematical Expression Plotter v1.0             ║\n");
+    printf("╚═══════════════════════════════════════════════════════════╝\n");
+    printf("\n\033[1;36mFeatures:\033[0m\n");
+    printf("  • User-defined variables: \033[1;33mlet a = 5\033[0m\n");
+    printf("  • User-defined functions: \033[1;33mdef f = x^2 + a\033[0m\n");
+    printf("  • Constant folding optimization\n");
+    printf("  • Two-argument functions: \033[1;33mmax(a,b)\033[0m, \033[1;33mmin(a,b)\033[0m\n");
+    printf("  • AST visualization: \033[1;33mast <expr>\033[0m\n");
+    printf("  • Error recovery & validation\n");
+    printf("\n\033[1;36mModes:\033[0m\n");
+    printf("  \033[1;32mSingle mode\033[0m: Advanced features (vars, funcs, ast) + immediate plotting\n");
+    printf("  \033[1;32mMulti mode\033[0m:  Collect multiple expressions → type 'plot' to overlay\n");
+    printf("\n\033[1;36mCommands:\033[0m\n");
+    printf("  \033[1;32mmode\033[0m        - Toggle between single/multi mode\n");
+    printf("  \033[1;32mvars\033[0m        - List all variables (single mode)\n");
+    printf("  \033[1;32mfuncs\033[0m       - List all functions (single mode)\n");
+    printf("  \033[1;32mshow <name>\033[0m - Display function AST (single mode)\n");
+    printf("  \033[1;32mlist\033[0m        - Show stored expressions (multi mode)\n");
+    printf("  \033[1;32mplot\033[0m        - Plot all stored expressions (multi mode)\n");
+    printf("  \033[1;32mclear\033[0m       - Clear stored expressions (multi mode)\n");
+    printf("  \033[1;32mquit\033[0m        - Exit\n");
     printf("\n");
 }
 
 void print_mode_status() {
     if (multi_mode) {
-        printf("[Multi-Function Mode] - Collect functions, type 'plot' to visualize\n");
+        printf("\033[1;33m[Multi-Function Mode]\033[0m - Collect expressions, type 'plot' to visualize all\n");
     } else {
-        printf("[Single-Function Mode] - Immediate plotting after each expression\n");
+        printf("\033[1;33m[Single-Function Mode]\033[0m - Advanced features + immediate plotting\n");
     }
 }
 
-void list_functions() {
-    if (func_count == 0) {
+void list_multi_functions() {
+    if (multi_func_count == 0) {
         printf("No functions stored.\n");
         return;
     }
-    printf("\nStored functions:\n");
-    for (int i = 0; i < func_count; i++) {
-        printf("  f%d(x) = %s\n", i, func_names[i]);
+    printf("\n\033[1;36mStored functions:\033[0m\n");
+    for (int i = 0; i < multi_func_count; i++) {
+        printf("  \033[1;33mf%d(x)\033[0m = %s\n", i, multi_func_names[i]);
     }
     printf("\n");
 }
@@ -68,15 +78,28 @@ void plot_single_function(ASTNode *node, double x_min, double x_max, double step
     }
 
     int points = 0;
+    int has_error = 0;
     for (double x = x_min; x <= x_max; x += step) {
         double y = evaluate(node, x);
-        fprintf(f, "%lf %lf\n", x, y);
-        points++;
+        if (!isnan(y) && !isinf(y)) {
+            fprintf(f, "%lf %lf\n", x, y);
+            points++;
+        } else {
+            has_error = 1;
+        }
     }
     fclose(f);
 
-    printf("\n[Generated %d data points from %.2f to %.2f]\n", 
-           points, x_min, x_max);
+    if (points == 0) {
+        fprintf(stderr, "\033[1;31mError: No valid points to plot\033[0m\n");
+        return;
+    }
+
+    if (has_error) {
+        printf("\n\033[1;33mWarning: Some points skipped due to undefined values (NaN/Inf)\033[0m\n");
+    }
+
+    printf("\n[Generated %d data points from %.2f to %.2f]\n", points, x_min, x_max);
     printf("Launching gnuplot...\n");
 
     char cmd[512];
@@ -94,16 +117,17 @@ void plot_single_function(ASTNode *node, double x_min, double x_max, double step
     if (ret != 0) {
         fprintf(stderr, "Warning: gnuplot command failed. Is gnuplot installed?\n");
     }
+    printf("\n");
 }
 
-void plot_all_functions(double x_min, double x_max, double step) {
-    if (func_count == 0) {
+void plot_all_multi_functions(double x_min, double x_max, double step) {
+    if (multi_func_count == 0) {
         printf("No functions to plot!\n");
         return;
     }
 
     // Generate data files for each function
-    for (int i = 0; i < func_count; i++) {
+    for (int i = 0; i < multi_func_count; i++) {
         char filename[30];
         sprintf(filename, "data%d.txt", i);
         FILE *f = fopen(filename, "w");
@@ -112,14 +136,16 @@ void plot_all_functions(double x_min, double x_max, double step) {
             continue;
         }
         for (double x = x_min; x <= x_max; x += step) {
-            double y = evaluate(functions[i], x);
-            fprintf(f, "%lf %lf\n", x, y);
+            double y = evaluate(multi_functions[i], x);
+            if (!isnan(y) && !isinf(y)) {
+                fprintf(f, "%lf %lf\n", x, y);
+            }
         }
         fclose(f);
     }
 
     printf("\nLaunching gnuplot with %d function%s...\n", 
-           func_count, func_count > 1 ? "s" : "");
+           multi_func_count, multi_func_count > 1 ? "s" : "");
 
     // Build gnuplot command
     FILE *gp = popen("gnuplot -persist", "w");
@@ -139,10 +165,10 @@ void plot_all_functions(double x_min, double x_max, double step) {
                            "#77AC30", "#4DBEEE", "#A2142F"};
     
     fprintf(gp, "plot ");
-    for (int i = 0; i < func_count; i++) {
-        fprintf(gp, "'data%d.txt' with lines linewidth 2 linecolor rgb '%s' title 'f%d(x): %s'",
-                i, colors[i % 7], i, func_names[i]);
-        if (i < func_count - 1) {
+    for (int i = 0; i < multi_func_count; i++) {
+        fprintf(gp, "'data%d.txt' with lines linewidth 2 linecolor rgb '%s' title 'f%d: %s'",
+                i, colors[i % 7], i, multi_func_names[i]);
+        if (i < multi_func_count - 1) {
             fprintf(gp, ", ");
         }
     }
@@ -150,46 +176,56 @@ void plot_all_functions(double x_min, double x_max, double step) {
     
     fflush(gp);
     pclose(gp);
-    printf("Plot complete!\n");
+    printf("Plot complete!\n\n");
 }
 
-void clear_functions() {
-    for (int i = 0; i < func_count; i++) {
-        freeAST(functions[i]);
+void clear_multi_functions() {
+    for (int i = 0; i < multi_func_count; i++) {
+        freeAST(multi_functions[i]);
     }
-    func_count = 0;
-    printf("All functions cleared.\n");
+    multi_func_count = 0;
+    printf("All stored functions cleared.\n");
 }
 
 void toggle_mode() {
     multi_mode = !multi_mode;
     printf("\n");
     if (multi_mode) {
-        printf("★ Switched to MULTI-FUNCTION mode\n");
-        printf("  → Enter multiple expressions, then type 'plot' to visualize all\n");
+        printf("★ Switched to \033[1;33mMULTI-FUNCTION\033[0m mode\n");
+        printf("  → Enter multiple expressions, then type 'plot' to overlay them\n");
+        printf("  → Commands: list, plot, clear\n");
     } else {
-        printf("★ Switched to SINGLE-FUNCTION mode\n");
+        printf("★ Switched to \033[1;33mSINGLE-FUNCTION\033[0m mode\n");
+        printf("  → Use advanced features: let, def, vars, funcs, show, ast\n");
         printf("  → Each expression plots immediately\n");
-        // Clear stored functions when switching to single mode
-        if (func_count > 0) {
-            printf("  → Clearing %d stored function%s\n", func_count, func_count > 1 ? "s" : "");
-            clear_functions();
+        // Clear stored multi functions when switching to single mode
+        if (multi_func_count > 0) {
+            printf("  → Clearing %d stored function%s\n", multi_func_count, 
+                   multi_func_count > 1 ? "s" : "");
+            clear_multi_functions();
         }
     }
     printf("\n");
 }
 
-ASTNode* parse_expression(const char *input) {
+ASTNode* parse_expression_from_string(const char *input) {
     char expr_with_newline[260];
     snprintf(expr_with_newline, sizeof(expr_with_newline), "%s\n", input);
     
     YY_BUFFER_STATE buffer = yy_scan_string(expr_with_newline);
     root = NULL;
+    error_occurred = 0;
+    
     int result = yyparse();
     yy_delete_buffer(buffer);
 
+    if (error_occurred) {
+        printf("\033[1;31mSyntax error. Please try again.\033[0m\n");
+        return NULL;
+    }
+
     if (result != 0 || !root) {
-        printf("Parse error. Please try again.\n");
+        printf("\033[1;31mParse error. Please try again.\033[0m\n");
         return NULL;
     }
 
@@ -222,13 +258,15 @@ int main(int argc, char *argv[]) {
     printf("\n");
 
     while (1) {
-        // Print appropriate prompt
-        if (multi_mode && func_count < MAX_FUNCTIONS) {
-            printf("f%d(x) = ", func_count);
-        } else if (multi_mode) {
-            printf("> ");
+        // Print appropriate prompt based on mode
+        if (multi_mode) {
+            if (multi_func_count < MAX_MULTI_FUNCTIONS) {
+                printf("f%d(x) = ", multi_func_count);
+            } else {
+                printf("\033[1;32m>\033[0m ");
+            }
         } else {
-            printf("f(x) = ");
+            printf("\033[1;32m>\033[0m ");
         }
         fflush(stdout);
         
@@ -245,9 +283,9 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Check for commands
+        // ===== COMMON COMMANDS =====
         if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0) {
-            clear_functions();
+            clear_multi_functions();
             printf("Goodbye!\n");
             break;
         }
@@ -257,63 +295,103 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        if (strcmp(input, "list") == 0) {
-            if (multi_mode) {
-                list_functions();
-            } else {
-                printf("'list' command only available in multi-function mode. Type 'mode' to switch.\n");
-            }
-            continue;
-        }
-
-        if (strcmp(input, "clear") == 0) {
-            if (multi_mode) {
-                clear_functions();
-            } else {
-                printf("'clear' command only available in multi-function mode. Type 'mode' to switch.\n");
-            }
-            continue;
-        }
-
-        if (strcmp(input, "plot") == 0) {
-            if (multi_mode) {
-                plot_all_functions(x_min, x_max, step);
-            } else {
-                printf("Already in single-function mode (auto-plotting). Type 'mode' to switch to multi.\n");
-            }
-            continue;
-        }
-
-        // Parse the expression
-        ASTNode *parsed_node = parse_expression(input);
-        if (!parsed_node) {
-            continue;  // Error already printed
-        }
-
-        // Handle based on mode
+        // ===== MULTI-MODE COMMANDS =====
         if (multi_mode) {
-            // Multi-function mode: store the function
-            if (func_count >= MAX_FUNCTIONS) {
-                printf("Maximum functions (%d) reached! Type 'plot', 'clear', or 'quit'.\n", MAX_FUNCTIONS);
+            if (strcmp(input, "list") == 0) {
+                list_multi_functions();
+                continue;
+            }
+
+            if (strcmp(input, "clear") == 0) {
+                clear_multi_functions();
+                continue;
+            }
+
+            if (strcmp(input, "plot") == 0) {
+                plot_all_multi_functions(x_min, x_max, step);
+                continue;
+            }
+
+            // Multi-mode: Check for invalid commands
+            if (strcmp(input, "vars") == 0 || strcmp(input, "funcs") == 0 || 
+                strncmp(input, "show ", 5) == 0 || strncmp(input, "let ", 4) == 0 || 
+                strncmp(input, "def ", 4) == 0 || strncmp(input, "ast ", 4) == 0) {
+                printf("\033[1;33mCommand '%s' only available in single-function mode.\033[0m\n", input);
+                printf("Type 'mode' to switch.\n");
+                continue;
+            }
+
+            // Parse and store expression in multi-mode
+            ASTNode *parsed_node = parse_expression_from_string(input);
+            if (!parsed_node) {
+                continue;  // Error already printed
+            }
+
+            if (multi_func_count >= MAX_MULTI_FUNCTIONS) {
+                printf("Maximum functions (%d) reached! Type 'plot', 'clear', or 'quit'.\n", 
+                       MAX_MULTI_FUNCTIONS);
                 freeAST(parsed_node);
                 continue;
             }
 
-            strcpy(func_names[func_count], input);
-            functions[func_count] = parsed_node;
-            func_count++;
+            // Optimize and store
+            parsed_node = optimizeAST(parsed_node);
+            strcpy(multi_func_names[multi_func_count], input);
+            multi_functions[multi_func_count] = parsed_node;
+            multi_func_count++;
 
-            printf("✓ Function f%d(x) added. ", func_count - 1);
-            if (func_count < MAX_FUNCTIONS) {
+            printf("\033[1;32m✓\033[0m Function f%d(x) added. ", multi_func_count - 1);
+            if (multi_func_count < MAX_MULTI_FUNCTIONS) {
                 printf("Enter more or type 'plot' to visualize.\n");
             } else {
                 printf("Max reached! Type 'plot' to visualize.\n");
             }
-        } else {
-            // Single-function mode: plot immediately
-            plot_single_function(parsed_node, x_min, x_max, step);
-            freeAST(parsed_node);
-            printf("\n");
+            continue;
+        }
+
+        // ===== SINGLE-MODE (Advanced features) =====
+        // Check for multi-mode-only commands
+        if (strcmp(input, "list") == 0 || strcmp(input, "clear") == 0) {
+            printf("\033[1;33mCommand '%s' only available in multi-function mode.\033[0m\n", input);
+            printf("Type 'mode' to switch.\n");
+            continue;
+        }
+
+        if (strcmp(input, "plot") == 0) {
+            printf("Already in single-function mode (auto-plotting).\n");
+            printf("Type 'mode' to switch to multi-function mode.\n");
+            continue;
+        }
+
+        // Use standard parser for single mode (supports let, def, vars, funcs, show, ast)
+        root = NULL;
+        error_occurred = 0;
+
+        // Need to feed input through parser
+        YY_BUFFER_STATE buffer = yy_scan_string(strcat(input, "\n"));
+        int result = yyparse();
+        yy_delete_buffer(buffer);
+
+        if (error_occurred) {
+            printf("\033[1;31mSyntax error. Please try again.\033[0m\n");
+            continue;
+        }
+
+        if (result != 0) {
+            continue;
+        }
+
+        // If we got an expression (not a command), plot it
+        if (root) {
+            root = optimizeAST(root);
+            
+            if (!validateAST(root)) {
+                freeAST(root);
+                continue;
+            }
+
+            plot_single_function(root, x_min, x_max, step);
+            freeAST(root);
         }
     }
 
