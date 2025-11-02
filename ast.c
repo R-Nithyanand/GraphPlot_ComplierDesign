@@ -69,7 +69,7 @@ ASTNode *createDerivative(const char *func, ASTNode *child) {
 
 double derivative(ASTNode *expr, double x) {
     double h = 1e-5;
-    return (evaluate(expr, x + h) - evaluate(expr, x - h));
+    return (evaluate(expr, x + h) - evaluate(expr, x - h)) / (2*h);
 }
 
 double evaluate(ASTNode *node, double x) {

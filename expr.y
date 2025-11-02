@@ -23,7 +23,7 @@ int yyerror(const char *s);
 %token VAR SIN COS TAN EXP LOG SQRT ABS LN ASIN ACOS ATAN SINH COSH TANH MAX MIN
 %token CEIL FLOOR      
 %token DERIV
-%token LET DEF PLOT AST_CMD VARS FUNCS SHOW QUIT CLEAR LIST
+%token LET DEF PLOT AST_CMD VARS FUNCS SHOW QUIT CLEAR LIST TAC
 %token EQ NEQ LE GE
 
 %type <node> expr
@@ -87,6 +87,19 @@ statement:
           root = $1; 
       }
     | QUIT { exit(0); }
+    | TAC {
+          FILE *f = fopen("tac.txt", "r");
+          if (!f){
+            perror("Error opening file");
+          }
+          else{
+            int c;
+            while ((c = fgetc(f)) != EOF){
+              putchar(c);
+            }
+            fclose(f);
+          }
+      }
 ;
 
 ident: IDENTIFIER { $$ = $1; }

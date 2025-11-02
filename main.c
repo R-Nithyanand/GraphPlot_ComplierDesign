@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "symtab.h"
 #include "commands.h"
+#include "tac.h"
 
 typedef struct yy_buffer_state * YY_BUFFER_STATE;
 extern YY_BUFFER_STATE yy_scan_string(const char *str);
@@ -31,6 +32,7 @@ void print_banner() {
     printf("\n\033[1;36mFeatures:\033[0m\n");
     printf("  • User-defined variables: \033[1;33mlet a = 5\033[0m\n");
     printf("  • User-defined functions: \033[1;33mdef f = x^2 + a\033[0m\n");
+    printf("  • \033[1;35mThree-Address Code (TAC):\033[0m \033[1;33mtac\033[0m\n");
     printf("  • Constant folding optimization\n");
     printf("  • Two-argument functions: \033[1;33mmax(a,b)\033[0m, \033[1;33mmin(a,b)\033[0m\n");
     printf("  • AST visualization: \033[1;33mast <expr>\033[0m\n");
@@ -42,6 +44,7 @@ void print_banner() {
     printf("  \033[1;32mmode\033[0m        - Toggle between single/multi mode\n");
     printf("  \033[1;32mvars\033[0m        - List all variables (single mode)\n");
     printf("  \033[1;32mfuncs\033[0m       - List all functions (single mode)\n");
+    printf("  \033[1;32mtac\033[0m         - Show Three-Address Code (single mode & mulit mode) \n");
     printf("  \033[1;32mshow <name>\033[0m - Display function AST (single mode)\n");
     printf("  \033[1;32mlist\033[0m        - Show stored expressions (multi mode)\n");
     printf("  \033[1;32mplot\033[0m        - Plot all stored expressions (multi mode)\n");
@@ -189,14 +192,17 @@ void clear_multi_functions() {
 
 void toggle_mode() {
     multi_mode = !multi_mode;
+    tac_reset();
+    FILE *f = fopen("tac.txt", "w");
+    fclose(f);
     printf("\n");
     if (multi_mode) {
         printf("★ Switched to \033[1;33mMULTI-FUNCTION\033[0m mode\n");
         printf("  → Enter multiple expressions, then type 'plot' to overlay them\n");
-        printf("  → Commands: list, plot, clear\n");
+        printf("  → Commands: list, plot, tac, clear\n");
     } else {
         printf("★ Switched to \033[1;33mSINGLE-FUNCTION\033[0m mode\n");
-        printf("  → Use advanced features: let, def, vars, funcs, show, ast\n");
+        printf("  → Use advanced features: let, def, vars, funcs, show, ast, tac\n");
         printf("  → Each expression plots immediately\n");
         // Clear stored multi functions when switching to single mode
         if (multi_func_count > 0) {
@@ -312,6 +318,21 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
+            if (strcmp(input, "tac") == 0) {
+                FILE *f = fopen("tac.txt", "r");
+                if (!f){
+                    perror("Error opening file");
+                }
+                else{
+                    int c;
+                    while ((c = fgetc(f)) != EOF){
+                    putchar(c);
+                    }
+                    fclose(f);
+                }
+                continue;
+            }
+
             // Multi-mode: Check for invalid commands
             if (strcmp(input, "vars") == 0 || strcmp(input, "funcs") == 0 || 
                 strncmp(input, "show ", 5) == 0 || strncmp(input, "let ", 4) == 0 || 
@@ -333,6 +354,15 @@ int main(int argc, char *argv[]) {
                 freeAST(parsed_node);
                 continue;
             }
+            
+            FILE *tacOut = fopen("tac.txt", "a");
+            if (!tacOut) {
+                perror("tac.txt");
+                freeAST(root);
+                continue;
+            }
+            generateTAC(root, tacOut);
+            fclose(tacOut);
 
             // Optimize and store
             parsed_node = optimizeAST(parsed_node);
@@ -389,6 +419,17 @@ int main(int argc, char *argv[]) {
                 freeAST(root);
                 continue;
             }
+
+            
+            tac_reset();
+            FILE *tacOut = fopen("tac.txt", "w");
+            if (!tacOut) {
+                perror("tac.txt");
+                freeAST(root);
+                continue;
+            }
+            generateTAC(root, tacOut);
+            fclose(tacOut);
 
             plot_single_function(root, x_min, x_max, step);
             freeAST(root);

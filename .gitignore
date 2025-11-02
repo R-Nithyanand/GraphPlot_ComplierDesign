@@ -1,32 +1,39 @@
-# Build and parser/lexer generated files
+# Build and generated files
 *.tab.c
 *.tab.h
 lex.yy.c
-lex.yy.o
-graph_compiler/
 graph_compiler
 
-# Data files (temporary output)
+# Object files
+*.o
+
+# Data files (temporary)
 data*.txt
+tac.txt
 
 # Build artifacts
-*.o
 *.out
 *.exe
+*.a
+*.so
+*.dylib
 
 # Logs and temp files
 *.log
 *.swp
-*.DS_Store
+*~
 
-# IDE and editor files
+# IDE files
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
+*.sublime-*
+*.code-workspace
 
 # OS files
+.DS_Store
 Thumbs.db
 
-# Dependency files
+# Other
 *.d
+*.bak
+core

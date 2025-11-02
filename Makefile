@@ -4,8 +4,8 @@ LDFLAGS = -lm
 
 all: graph_compiler
 
-graph_compiler: expr.tab.o lex.yy.o ast.o symtab.o main.o
-	$(CC) -o graph_compiler expr.tab.o lex.yy.o ast.o symtab.o main.o $(LDFLAGS)
+graph_compiler: expr.tab.o lex.yy.o ast.o symtab.o tac.o main.o
+	$(CC) -o graph_compiler expr.tab.o lex.yy.o ast.o symtab.o tac.o main.o $(LDFLAGS)
 
 expr.tab.c expr.tab.h: expr.y
 	bison -d expr.y
@@ -19,7 +19,10 @@ ast.o: ast.c ast.h
 symtab.o: symtab.c symtab.h
 	$(CC) $(CFLAGS) -c symtab.c
 
-main.o: main.c ast.h expr.tab.h
+tac.o: tac.c tac.h ast.h
+	$(CC) $(CFLAGS) -c tac.c
+
+main.o: main.c ast.h tac.h expr.tab.h
 	$(CC) $(CFLAGS) -c main.c
 
 expr.tab.o: expr.tab.c ast.h
@@ -29,6 +32,6 @@ lex.yy.o: lex.yy.c expr.tab.h ast.h
 	$(CC) $(CFLAGS) -c lex.yy.c
 
 clean:
-	rm -f graph_compiler *.o lex.yy.c expr.tab.c expr.tab.h data*.txt
+	rm -f graph_compiler *.o lex.yy.c expr.tab.c expr.tab.h data*.txt tac.txt
 
 .PHONY: all clean

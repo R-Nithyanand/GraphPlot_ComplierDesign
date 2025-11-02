@@ -16,6 +16,7 @@ A powerful DSL (Domain Specific Language) for plotting and visualizing mathemati
 - User-defined functions (`def f = x^2 + a`)
 - AST visualization with colors
 - Constant folding optimization
+- Three-Address Code (TAC) generation
 - Two modes: Single (advanced) and Multi (overlay plots)
 
 ### Mathematical Operations
@@ -139,6 +140,7 @@ vars                  - List all variables
 funcs                 - List all functions
 show <name>           - Display function AST
 ast <expr>            - Visualize expression AST
+tac                   - Display Three-Address Code (TAC)
 ```
 
 ### Multi-Mode Commands
@@ -166,6 +168,179 @@ clear       - Clear all stored functions
 > d(x^2)                          # Derivative (2x)
 ```
 
+## Three-Address Code (TAC) Generation
+
+### What is TAC?
+
+Three-Address Code (TAC) is an intermediate representation used in compilers. Each instruction has at most three addresses (operands), making it easier to:
+- Optimize code
+- Generate assembly/machine code
+- Understand expression evaluation order
+- Debug complex expressions
+
+### Viewing TAC
+
+After evaluating any expression, view the generated TAC:
+```bash
+> x^2 + 2*x + 1
+[Plot displays]
+
+> tac
+t1 = x * x
+t2 = 2 * x
+t3 = t1 + t2
+t4 = t3 + 1
+result = t4
+```
+
+### TAC Examples
+
+#### Simple Arithmetic
+```bash
+> 2 + 3 * 4
+> tac
+
+Output:
+t1 = 3 * 4      # Evaluate multiplication first
+t2 = 2 + t1     # Then addition
+result = t2
+```
+
+#### With Variables
+```bash
+> let a = 5
+> let b = 3
+> a * x + b
+> tac
+
+Output:
+t1 = a * x      # Multiply variable 'a' by x
+t2 = t1 + b     # Add variable 'b'
+result = t2
+```
+
+#### Function Calls
+```bash
+> sin(x^2)
+> tac
+
+Output:
+t1 = x * x      # Compute x^2
+t2 = sin(t1)    # Apply sin function
+result = t2
+```
+
+#### Complex Expression
+```bash
+> exp(-x^2) * sin(x)
+> tac
+
+Output:
+t1 = -x         # Unary minus
+t2 = x * x      # Square
+t3 = t1 * t2    # Multiply
+t4 = exp(t3)    # Exponential
+t5 = sin(x)     # Sine
+t6 = t4 * t5    # Final multiplication
+result = t6
+```
+
+#### Nested Functions
+```bash
+> sqrt(sin(x) + cos(x))
+> tac
+
+Output:
+t1 = sin(x)
+t2 = cos(x)
+t3 = t1 + t2
+t4 = sqrt(t3)
+result = t4
+```
+
+### TAC Format
+```
+<temp_var> = <operand1> <operator> <operand2>
+<temp_var> = <function>(<operand>)
+<temp_var> = <unary_op> <operand>
+result = <final_temp_var>
+```
+
+**Components:**
+- **Temporary variables:** `t1`, `t2`, `t3`, ... (auto-generated)
+- **Operators:** `+`, `-`, `*`, `/`, `^`
+- **Functions:** `sin()`, `cos()`, `exp()`, `sqrt()`, etc.
+- **Result:** Final value stored in `result`
+
+### TAC File Output
+
+TAC is automatically saved to **`tac.txt`** in the current directory. You can:
+```bash
+# View TAC
+> tac
+
+# Or read the file directly
+$ cat tac.txt
+
+# Use TAC for further processing
+$ python optimize_tac.py tac.txt
+```
+
+### Use Cases
+
+| Use Case | Description |
+|----------|-------------|
+| **Compiler Education** | Learn intermediate code generation |
+| **Debugging** | Understand expression evaluation order |
+| **Optimization** | Identify redundant operations |
+| **Code Generation** | Convert TAC to assembly/bytecode |
+| **Analysis** | Study compiler transformations |
+
+### Comparison: Expression → AST → TAC
+```bash
+> (a + b) * c
+
+# View AST
+> ast (a + b) * c
+OP: *
+  OP: +
+    ID: a
+    ID: b
+  ID: c
+
+# View TAC
+> tac
+t1 = a + b
+t2 = t1 * c
+result = t2
+```
+
+### Benefits of TAC
+
+1. **Simpler than AST:** Linear sequence of instructions
+2. **Optimization-friendly:** Easy to apply transformations
+3. **Machine-independent:** Abstract from target architecture
+4. **Debugging:** Step-by-step execution trace
+5. **Teaching:** Great for compiler courses
+
+### Advanced: TAC Optimization
+
+Future versions may include TAC optimizations like:
+- **Constant folding:** `t1 = 2 + 3` → `t1 = 5`
+- **Dead code elimination:** Remove unused temporaries
+- **Common subexpression elimination:** Reuse calculated values
+- **Strength reduction:** `x * 2` → `x + x`
+
+---
+
+**Tip:** Compare AST and TAC for the same expression to understand the transformation!
+```bash
+> let expr = x^2 + sin(x)
+> ast expr      # Tree view
+> expr          # Evaluate and plot
+> tac           # Linear TAC view
+```
+
 ### Optimization Demo
 ```
 > ast 2 + 3 * 4
@@ -186,6 +361,8 @@ clear       - Clear all stored functions
 ├── symtab.h           # Symbol table definitions
 ├── symtab.c           # Variable/function storage
 ├── commands.h         # Command flags
+├── tac.h              # Three-Address Code definitions
+├── tac.c              # TAC generation
 ├── expr.l             # Lexer (Flex)
 ├── expr.y             # Parser (Bison)
 └── main.c             # Main driver program
@@ -257,6 +434,11 @@ Created as an educational DSL project demonstrating:
 - Performs constant folding optimization
 - Validates mathematical operations
 
+**Intermediate Code Generation (tac.c):**
+- Generates Three-Address Code (TAC)
+- Linearizes expression tree
+- Prepares for code generation/optimization
+- 
 **Symbol Management (symtab.c):**
 - Stores user-defined variables
 - Manages function definitions
@@ -581,6 +763,10 @@ where h = 1e-5
 - Dual-mode operation (single/multi)
 - Enhanced error handling
 - Numerical derivatives
+-  Added Three-Address Code (TAC) generation
+- New `tac` command to view intermediate code
+- TAC output saved to `tac.txt` file
+- Enhanced compiler education features
 
 ## ASCII Art Examples
 
@@ -620,6 +806,7 @@ If you find this project useful:
 │   def f = x^2      - Define function            │
 │   vars             - List variables             │
 │   funcs            - List functions             │
+│   tac              - Show Three-Address Code    │
 │   show <name>      - Display function AST       │
 │   ast <expr>       - Show expression AST        │
 │   list             - Show stored (multi-mode)   │
@@ -628,7 +815,7 @@ If you find this project useful:
 │   quit             - Exit program               │
 └─────────────────────────────────────────────────┘
 ```
-
+ 
 ---
 
 **Made with ❤️ for mathematics and compiler enthusiasts**

@@ -32,7 +32,7 @@ static Keyword keywords[] = {
     {"vars",VARS},{"funcs",FUNCS},{"show",SHOW},
     {"quit",QUIT},{"exit",QUIT},
     {"clear",CLEAR},{"list",LIST},
-    {"d",DERIV},
+    {"d",DERIV},{"tac",TAC},
     {NULL,0}
 };
 
